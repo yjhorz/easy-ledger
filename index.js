@@ -113,7 +113,19 @@ const DOM = {
   exportBtn: document.getElementById('exportBtn'),
   importBtn: document.getElementById('importBtn'),
   fileInput: document.getElementById('fileInput'),
-  themeToggle: document.getElementById('themeToggle')
+  themeToggle: document.getElementById('themeToggle'),
+
+  // 移动端侧栏 DOM
+  menuBtn: document.getElementById('menuBtn'),
+  sidebarDrawer: document.getElementById('sidebarDrawer'),
+  sidebarOverlay: document.getElementById('sidebarOverlay'),
+  closeSidebarBtn: document.getElementById('closeSidebarBtn'),
+  sidebarAvatarLetter: document.getElementById('sidebarAvatarLetter'),
+  sidebarCurrentUserText: document.getElementById('sidebarCurrentUserText'),
+  sidebarExportBtn: document.getElementById('sidebarExportBtn'),
+  sidebarImportBtn: document.getElementById('sidebarImportBtn'),
+  sidebarThemeToggle: document.getElementById('sidebarThemeToggle'),
+  sidebarLogoutBtn: document.getElementById('sidebarLogoutBtn')
 };
 
 // ==========================================
@@ -159,9 +171,15 @@ function enterApp() {
     DOM.authWrapper.style.opacity = '1'; // 重置供未来退场用
   }, 350);
 
-  // 2. 渲染顶栏用户头像及名称
+  // 2. 渲染顶栏用户头像及名称 (同步桌面端与侧栏抽屉)
+  const firstLetter = state.currentUser.charAt(0).toUpperCase();
   DOM.currentUserText.textContent = state.currentUser;
-  DOM.avatarLetter.textContent = state.currentUser.charAt(0).toUpperCase();
+  DOM.avatarLetter.textContent = firstLetter;
+  
+  if (DOM.sidebarCurrentUserText) {
+    DOM.sidebarCurrentUserText.textContent = state.currentUser;
+    DOM.sidebarAvatarLetter.textContent = firstLetter;
+  }
 
   // 3. 读取该账户隔离下的特定数据 (新账户无 mock 数据，直接起步)
   loadUserSpecificData();
@@ -276,6 +294,32 @@ function bindBaseEvents() {
 
   // L. 主题切换
   DOM.themeToggle.addEventListener('click', toggleTheme);
+
+  // M. 移动端侧栏事件绑定
+  if (DOM.menuBtn) {
+    const openSidebar = () => DOM.sidebarDrawer.classList.add('active');
+    const closeSidebar = () => DOM.sidebarDrawer.classList.remove('active');
+    
+    DOM.menuBtn.addEventListener('click', openSidebar);
+    DOM.closeSidebarBtn.addEventListener('click', closeSidebar);
+    DOM.sidebarOverlay.addEventListener('click', closeSidebar);
+    
+    DOM.sidebarExportBtn.addEventListener('click', () => {
+      exportBackup();
+      closeSidebar();
+    });
+    DOM.sidebarImportBtn.addEventListener('click', () => {
+      DOM.fileInput.click();
+      closeSidebar();
+    });
+    DOM.sidebarThemeToggle.addEventListener('click', () => {
+      toggleTheme();
+    });
+    DOM.sidebarLogoutBtn.addEventListener('click', () => {
+      handleLogout();
+      closeSidebar();
+    });
+  }
 }
 
 // ==========================================
@@ -298,15 +342,27 @@ function handleRegister(e) {
     return;
   }
   
-  // 读取已存用户列表
+  // 读取已存用户列表 (加入鲁棒数组判断)
   let users = [];
   const storedUsers = localStorage.getItem('easy_ledger_users');
   if (storedUsers) {
-    try { users = JSON.parse(storedUsers); } catch(e) { users = []; }
+    try { 
+      users = JSON.parse(storedUsers); 
+      if (!Array.isArray(users)) {
+        users = [];
+      }
+    } catch(e) { 
+      users = []; 
+    }
   }
   
-  // 重名检测
-  if (users.some(u => u.username.toLowerCase() === user.toLowerCase())) {
+  // 重名检测 (严格排空及 trim、大小写判断)
+  const isDuplicate = users.some(u => {
+    if (!u || typeof u.username !== 'string') return false;
+    return u.username.trim().toLowerCase() === user.toLowerCase();
+  });
+  
+  if (isDuplicate) {
     showToast('该用户名已被注册，请换一个吧！', 'error');
     // 抖动输入框警示
     DOM.regUser.classList.add('calc-invalid');
